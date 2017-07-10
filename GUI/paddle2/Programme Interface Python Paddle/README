@@ -1,0 +1,51 @@
+ORGANISATION:
+./UI : Dossier contenant les fichiers associés à la gestion de l'Interface
+./Robot: Dossier contenant le programme du robot
+
+
+DESCRIPTION DU FONCTIONNEMENT DU CODE DE L'INTERFACE :
+
+src/
+Contient les scripts utiles à la gestion de la manip et du traitement des fichiers de résultats.
+
+launcher.py
+Le launcher requiert les infos suivantes:
+	-Noms des deux sujets (sujet1 et sujet2 par defaut)
+	-Numéro de scenario (int entre 1 et 300), le numéro de scenario détermine le type de manip:
+		--scenarii 1 a 100 : manip type GROTEN
+		--scenarii 101 a 200 : manip type OBSTACLE, path visible pour les deux sujets
+		--scenarii 201 a 300 : manip type OBSTACLE, path visible uniquement pour le sujet 2
+	-Présence ou non de feedback haptique entre les deux paddles (PID actif ou non). Reponses possibles: a/avec/s/sans
+	-Numéro de trial
+
+Le launcher lance deux versions du script UI_v7.py dans deux shells. Les deux exécutions sont synchronisées.
+Une fois les deux UIs fermées, le launcher récupère le fichier de data du controlleur par ssh, et le copie sous la forme: data/DATA_scenario_X_trial_Z_date.txt.
+Il récupère ensuite les données présentes dans ce fichier, ainsi que les coordonnées du path contenu dans path/PATH_scenario_X_sujet_Y.txt généré par les UIs.
+Toutes ces données sont regroupées dans un fichier results/RESULTS_scenario_X_trial_Z_n_date.txt avec n = a ou s selon le type de feedback.
+Au passage, une rectification est appliquée pour recaler le path sur la durée réelle de la manip (généralement différente de la durée prévue à une ou deux secondes près du fait d'un léger ramage du PC).
+
+
+UI_v7.py
+Le script UI_v7.py fais tourner l'UI de la manip (code pygame).
+Tous les paramètres de gestion de l'UI sont situés dans le fichier src/params.py
+Le script UI_v7.py récupère dans le le fichier scenarios/SCENARIO_X.txt une série de nombres générés semi-aléatoirement par le script generateScenarioFile.py, X étant le numéro indiqué dans le launcher, il s'en sert pour générer le path et le fait défiler à l'écran.
+Lors de son démarage, UI_v7.py envoi un signal dans une socket au controlleur afin de démarer l'enregistrement des données.
+Le controlleur enristre 5 données différentes: 
+	-Le temps (depuis le démarage de l'enregistrement, ce qui correspond à un ping près au temps de démarage de l'UI)
+	-La position des 2 paddles (en réalité la position en ticks de l'encodeur)
+	-Le couple exercé par les 2 moteurs (en réalité la commande envoyée, multiplié par des constantes de calibrations)
+Ces données sont enregistrées coté controlleur dans un fichier /home/paddle/Manip/files/Paddle/DATA/data.txt.
+L'UI crée de son coté un fichier path/PATH_scenario_X_sujet_Y.txt, contenant les coordonées en pixel de tous les points du path et des obstacles pour le scenario et le sujet correspondant.
+Lorsque les UIs sont fermées (path fini ou interruption), un signal de fin d'enregistrement est envoyé (plus précisément quand l'UI sujet 1 est fermée) au controlleur.
+Le launcher reprend ensuite la main pour la gestion des fichiers.
+
+
+DESCRIPTION DU CODE DU ROBOT:
+Les fichiers s526 contiennent le code associé aux cartes de commande des moteurs.
+
+Deux programmes différents:
+controller_a --> mode classique en téléop
+controller_ultron --> mode coop homme-robot
+
+Les données expé sont enregistrées dans ./data/data.txt et envoyées par ssh à la fin de l'enregistrement
+
